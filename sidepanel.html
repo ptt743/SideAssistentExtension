@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="sidepanel.css" />
+  <title>Messages</title>
+</head>
+<body>
+  <!-- Nut mat troi + bang chon model -->
+  <button id="modelBtn" class="sun-btn" title="Chon model">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.4" fill="currentColor"/><g stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M12 2.5V5M12 19v2.5M2.5 12H5M19 12h2.5M5.1 5.1l1.7 1.7M17.2 17.2l1.7 1.7M18.9 5.1l-1.7 1.7M6.8 17.2l-1.7 1.7"/></g></svg>
+  </button>
+  <div id="modelPanel" class="model-panel">
+    <div class="mp-title">Model <span id="activeModel" class="mp-active"></span></div>
+    <div class="mp-list" id="modelList"></div>
+    <label class="mp-key">
+      <span>API key</span>
+      <input id="apiKey" type="password" placeholder="Dan API key vao day..." autocomplete="off" />
+    </label>
+  </div>
+
+  <!-- Tin nhan -->
+  <main class="messages" id="messages"></main>
+
+  <!-- Nhap tin -->
+  <footer class="composer">
+    <div class="attachments" id="attachments"></div>
+    <div class="suggestions" id="suggestions">
+      <button class="sg-btn sg-def" id="sgDef">Định nghĩa</button>
+      <button class="sg-btn" data-instr="Dịch sang tiếng Việt">Dịch sang tiếng Việt</button>
+      <button class="sg-btn" data-instr="Tóm tắt ý chính">Tóm tắt ý chính</button>
+    </div>
+    <div class="composer-row">
+      <button id="addPageBtn" class="page-btn" title="Them trang hien tai">
+        <svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 100 18 9 9 0 000-18zm6.9 6h-2.8a13 13 0 00-1-3 7 7 0 013.8 3zM12 5c.8 0 2 1.4 2.5 4h-5C10 6.4 11.2 5 12 5zM5.1 15a7 7 0 010-6h2.8a16 16 0 000 6zm.8 2h2.2c.3 1.2.6 2.1 1 3a7 7 0 01-3.2-3zm2.8-8H5.9a7 7 0 013.2-3c-.4.9-.7 1.8-1 3zM12 19c-.8 0-2-1.4-2.5-4h5c-.5 2.6-1.7 4-2.5 4zm-2.7-6a14 14 0 010-6h5.4a14 14 0 010 6zm5.6 4c.4-.9.7-1.8 1-3h2.2a7 7 0 01-3.2 3zM16.1 15a16 16 0 000-6h2.8a7 7 0 010 6z" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
+      </button>
+      <div class="input-wrap">
+      <textarea id="input" class="input" rows="1" placeholder="Nhan tin"></textarea>
+      <button id="sendBtn" class="send-btn" title="Gui" disabled>
+        <svg viewBox="0 0 24 24"><path d="M12 19V6M6 12l6-6 6 6" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+    </div>
+  </footer>
+
+  <script src="sidepanel.js"></script>
+</body>
+</html>
