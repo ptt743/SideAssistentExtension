@@ -234,18 +234,61 @@ function renderRich(text) {
   const re = /```(\w*)\r?\n?([\s\S]*?)```/g;
   let last = 0, m;
   while ((m = re.exec(text))) {
-    out += renderInline(text.slice(last, m.index));
+    out += renderProse(text.slice(last, m.index));
     out += codeBlockHTML(m[1] || "", m[2].replace(/\n$/, ""));
     last = re.lastIndex;
   }
-  out += renderInline(text.slice(last));
+  out += renderProse(text.slice(last));
   return out;
 }
-function renderInline(s) {
-  return escapeHTML(s).replace(
+// Inline markdown: `code`, **dam**, *nghieng*, link
+function mdInline(s) {
+  let e = escapeHTML(s);
+  e = e.replace(/`([^`]+)`/g, (mm, c) => '<code class="md-code">' + c + "</code>");
+  e = e.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+  e = e.replace(/__([^_]+)__/g, "<strong>$1</strong>");
+  e = e.replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, "$1<em>$2</em>");
+  e = e.replace(
     /(https?:\/\/[^\s<]+)/g,
-    (u) => `<a href="${u}" target="_blank" rel="noopener noreferrer">${u}</a>`
+    (u) => '<a href="' + u + '" target="_blank" rel="noopener noreferrer">' + u + "</a>"
   );
+  return e;
+}
+// Block-level markdown: tieu de, danh sach, trich dan, hr, doan van
+function renderProse(md) {
+  if (!md) return "";
+  const lines = md.replace(/\r/g, "").split("\n");
+  let html = "", i = 0, para = [];
+  const flush = () => {
+    if (para.length) { html += "<p>" + para.map(mdInline).join("<br>") + "</p>"; para = []; }
+  };
+  while (i < lines.length) {
+    const line = lines[i], t = line.trim();
+    if (t === "") { flush(); i++; continue; }
+    if (/^(-{3,}|\*{3,}|_{3,})$/.test(t)) { flush(); html += '<hr class="md-hr">'; i++; continue; }
+    const hm = /^(#{1,6})\s+(.*)$/.exec(t);
+    if (hm) { flush(); html += '<div class="md-h md-h' + hm[1].length + '">' + mdInline(hm[2]) + "</div>"; i++; continue; }
+    if (/^>\s?/.test(t)) {
+      flush(); const q = [];
+      while (i < lines.length && /^>\s?/.test(lines[i].trim())) { q.push(lines[i].trim().replace(/^>\s?/, "")); i++; }
+      html += '<blockquote class="md-quote">' + q.map(mdInline).join("<br>") + "</blockquote>"; continue;
+    }
+    if (/^([-*•])\s+/.test(t)) {
+      flush(); html += '<ul class="md-ul">';
+      while (i < lines.length && /^([-*•])\s+/.test(lines[i].trim()))
+        { html += "<li>" + mdInline(lines[i].trim().replace(/^([-*•])\s+/, "")) + "</li>"; i++; }
+      html += "</ul>"; continue;
+    }
+    if (/^\d+[.)]\s+/.test(t)) {
+      flush(); html += '<ol class="md-ol">';
+      while (i < lines.length && /^\d+[.)]\s+/.test(lines[i].trim()))
+        { html += "<li>" + mdInline(lines[i].trim().replace(/^\d+[.)]\s+/, "")) + "</li>"; i++; }
+      html += "</ol>"; continue;
+    }
+    para.push(line); i++;
+  }
+  flush();
+  return html;
 }
 function codeBlockHTML(lang, code) {
   const label = lang ? escapeHTML(lang) : "code";

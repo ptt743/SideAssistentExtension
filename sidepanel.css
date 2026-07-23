@@ -472,3 +472,29 @@ body {
   padding: 1px 8px; border-radius: 6px; margin: 8px 0 3px;
 }
 .def-vi-item { margin: 3px 0; color: var(--text); }
+
+/* ---------- Markdown trong tin nhan ---------- */
+.msg-text p { margin: 0 0 8px; }
+.msg-text p:last-child { margin-bottom: 0; }
+.md-h { font-weight: 700; color: var(--text); margin: 12px 0 6px; line-height: 1.3; }
+.md-h:first-child { margin-top: 0; }
+.md-h1 { font-size: 18px; }
+.md-h2 { font-size: 16px; }
+.md-h3 { font-size: 14px; color: var(--accent); }
+.md-h4, .md-h5, .md-h6 { font-size: 13px; color: var(--secondary); }
+.msg-text strong { font-weight: 700; }
+.msg-text em { font-style: italic; }
+.md-code {
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 12.5px; background: #eef0f3; color: #c7254e;
+  padding: 1px 5px; border-radius: 5px;
+}
+.md-ul, .md-ol { margin: 4px 0 8px; padding-left: 20px; }
+.md-ul li, .md-ol li { margin: 3px 0; }
+.md-quote {
+  margin: 6px 0; padding: 5px 10px;
+  border-left: 3px solid var(--accent);
+  color: var(--secondary); background: rgba(0,122,255,.05);
+  border-radius: 0 6px 6px 0;
+}
+.md-hr { border: none; border-top: 1px solid var(--bubble-border); margin: 10px 0; }
