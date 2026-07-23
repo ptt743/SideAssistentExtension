@@ -1,43 +1,50 @@
-// Chay tren moi trang (moi frame). Khi boi den text -> ghi vao chrome.storage,
-// side panel lang nghe storage.onChanged de tao chip. Dung storage cho on dinh
-// (khong bi truot nhu runtime.sendMessage).
-let lastSent = "";
-let lastAt = 0;
+// Bat text boi den tren trang -> gui sang side panel (chip dinh kem).
+// Dung ca chrome.storage lan runtime message; khu trung bang ts.
+(function () {
+  if (window.__EVCHAT_SEL__) return;   // tranh gan listener 2 lan (khi bi tiem lai)
+  window.__EVCHAT_SEL__ = true;
 
-function alive() {
-  try { return !!(chrome && chrome.runtime && chrome.runtime.id); }
-  catch (e) { return false; }
-}
-function currentSelection() {
-  const s = window.getSelection ? window.getSelection().toString() : "";
-  return (s || "").trim();
-}
-function push() {
-  const text = currentSelection();
-  if (!text) return;
-  const now = Date.now();
-  if (text === lastSent && now - lastAt < 1200) return; // chong spam ngan han
-  if (!alive()) return; // extension vua reload -> context cu vo hieu
-  lastSent = text;
-  lastAt = now;
-  try {
-    chrome.storage.local.set({
-      selEvent: { text: text, url: location.href, title: document.title, ts: now },
-    });
-  } catch (e) { /* context invalidated */ }
-}
+  var lastText = "", lastAt = 0;
 
-let timer;
-function schedule(delay) {
-  clearTimeout(timer);
-  timer = setTimeout(push, delay);
-}
-document.addEventListener("mouseup", () => schedule(100));
-document.addEventListener("keyup", (e) => {
-  if (e.shiftKey || e.key === "Shift" || (e.key && e.key.startsWith("Arrow"))) schedule(100);
-});
-document.addEventListener("selectionchange", () => {
-  const s = currentSelection();
-  if (!s) { lastSent = ""; return; } // bo chon -> reset de lan sau gui lai duoc
-  schedule(300);
-});
+  function alive() {
+    try { return !!(chrome && chrome.runtime && chrome.runtime.id); } catch (e) { return false; }
+  }
+  function getSel() {
+    var ae = document.activeElement;
+    // selection trong input/textarea (getSelection khong bat duoc)
+    if (ae && (ae.tagName === "TEXTAREA" ||
+        (ae.tagName === "INPUT" && /^(text|search|url|email|tel|)$/i.test(ae.type || "")))) {
+      try {
+        var v = ae.value.substring(ae.selectionStart, ae.selectionEnd);
+        if (v && v.trim()) return v.trim();
+      } catch (e) {}
+    }
+    var sel = window.getSelection ? window.getSelection().toString() : "";
+    return (sel || "").trim();
+  }
+  function push() {
+    var text = getSel();
+    if (!text) return;
+    var now = Date.now();
+    if (text === lastText && now - lastAt < 500) return; // chi chan double-fire tuc thoi
+    lastText = text; lastAt = now;
+    if (!alive()) return;
+    var payload = { type: "selection", text: text, url: location.href, title: document.title, ts: now };
+    try { chrome.storage.local.set({ selEvent: payload }); } catch (e) {}
+    try { var p = chrome.runtime.sendMessage(payload); if (p && p.catch) p.catch(function () {}); } catch (e) {}
+  }
+  var t;
+  function schedule(d) { clearTimeout(t); t = setTimeout(push, d); }
+
+  document.addEventListener("mouseup",  function () { schedule(60); }, true);
+  document.addEventListener("pointerup",function () { schedule(60); }, true);
+  document.addEventListener("dblclick", function () { schedule(0); },  true);
+  document.addEventListener("keyup", function (e) {
+    if (e.shiftKey || e.key === "Shift" || (e.key && e.key.indexOf("Arrow") === 0)) schedule(60);
+  }, true);
+  document.addEventListener("selectionchange", function () {
+    var s = getSel();
+    if (!s) { lastText = ""; return; }  // bo chon -> cho phep chon lai chinh no
+    schedule(250);
+  });
+})();

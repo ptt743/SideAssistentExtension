@@ -612,6 +612,12 @@ if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.onChanged)
     }
   });
 }
+// Kenh thu 2: nhan truc tiep qua message (khu trung bang ts o handleSelEvent)
+if (typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.onMessage) {
+  chrome.runtime.onMessage.addListener((msg) => {
+    if (msg && msg.type === "selection") handleSelEvent(msg);
+  });
+}
 
 /* =================== KHOI TAO =================== */
 load(() => {
