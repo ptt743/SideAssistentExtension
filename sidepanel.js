@@ -52,7 +52,8 @@ function pushAttachment(obj) {
   const dup = attachments.some(
     (a) =>
       (obj.type === "link" && a.type === "link" && a.url === obj.url) ||
-      (obj.type === "text" && a.type === "text" && a.text === obj.text)
+      (obj.type === "text" && a.type === "text" && a.text === obj.text) ||
+      (obj.type === "page" && a.type === "page" && a.url === obj.url)
   );
   if (dup) return;
   attachments.push(obj);
@@ -94,19 +95,62 @@ function addSelectedText(text, srcUrl) {
   });
 }
 
-// Them trang (tab) hien tai lam chip link
+// Ham chay TRONG trang de trich noi dung van ban chinh
+function __extractPageContent() {
+  try {
+    var pick = document.querySelector("article") || document.querySelector("main") || document.body;
+    var clone = pick.cloneNode(true);
+    clone.querySelectorAll(
+      'script,style,noscript,svg,canvas,iframe,nav,header,footer,aside,form,button,[aria-hidden="true"]'
+    ).forEach(function (n) { n.remove(); });
+    var text = (clone.innerText || clone.textContent || "")
+      .replace(/[ \t]{2,}/g, " ")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
+    return { title: document.title || location.hostname, url: location.href, text: text };
+  } catch (e) {
+    return { title: document.title || "", url: location.href, text: (document.body ? document.body.innerText : "") || "" };
+  }
+}
+
+// Nut 🌐: crawl toan bo noi dung trang hien tai -> chip "noi dung trang"
 function addCurrentTab() {
-  if (!(typeof chrome !== "undefined" && chrome.tabs)) return;
+  if (!(typeof chrome !== "undefined" && chrome.tabs && chrome.scripting)) return;
   chrome.tabs.query({ active: true, lastFocusedWindow: true }, (tabs) => {
     const tab = tabs && tabs[0];
-    if (!tab || !tab.url) return;
-    pushAttachment({
-      type: "link",
-      url: tab.url,
-      title: tab.title || hostOf(tab.url),
-      subtitle: hostOf(tab.url),
-      favicon: tab.favIconUrl || null,
-    });
+    if (!tab || !tab.id || !tab.url) return;
+    if (!/^https?:/.test(tab.url)) {
+      addMessage("received", "Không lấy được nội dung trang hệ thống này. Hãy mở một trang web thường rồi thử lại.", []);
+      return;
+    }
+    chrome.scripting.executeScript(
+      { target: { tabId: tab.id }, func: __extractPageContent },
+      (results) => {
+        if (chrome.runtime.lastError || !results || !results[0]) {
+          addMessage("received", "Không crawl được nội dung trang (trang có thể chặn script).", []);
+          return;
+        }
+        const r = results[0].result || {};
+        let text = (r.text || "").trim();
+        if (!text) {
+          addMessage("received", "Trang không có nội dung văn bản để lấy.", []);
+          return;
+        }
+        const MAX = 20000;
+        const truncated = text.length > MAX;
+        if (truncated) text = text.slice(0, MAX);
+        const host = hostOf(r.url || tab.url);
+        const words = text.split(/\s+/).filter(Boolean).length;
+        pushAttachment({
+          type: "page",
+          url: r.url || tab.url,
+          title: r.title || tab.title || host,
+          subtitle: host + " · " + words + " từ" + (truncated ? " (đã cắt)" : ""),
+          text: text,
+          favicon: tab.favIconUrl || null,
+        });
+      }
+    );
   });
 }
 
@@ -133,7 +177,7 @@ function globeSVG() {
 function renderAttachments() {
   attachmentsEl.innerHTML = attachments
     .map((a, i) => {
-      const icon = a.type === "link" ? faviconTag(a) : quoteSVG();
+      const icon = (a.type === "link" || a.type === "page") ? faviconTag(a) : quoteSVG();
       return `<div class="chip">
         <div class="chip-icon">${icon}</div>
         <div class="chip-text">
@@ -232,27 +276,46 @@ function attachCodeCopy() {
   });
 }
 
+const STAR_AV =
+  '<div class="star-av"><svg viewBox="0 0 24 24"><path d="M12 2l2.7 6.5L21.5 9l-5 4.4 1.6 6.6L12 16.6 5.9 20l1.6-6.6-5-4.4 6.8-.5z"/></svg></div>';
+
 function makeBubble(m, first, tail) {
   const el = document.createElement("div");
   el.className =
-    "bubble " + m.side + (first ? " first" : "") + (tail ? " tail" : "");
+    "bubble " + m.side + (m.side === "sent" && first ? " first" : "") + (tail ? " tail" : "");
   let html = "";
-  if (m.atts && m.atts.length) {
-    html +=
-      '<div class="msg-atts">' +
-      m.atts
-        .map((a) => {
-          const icon = a.type === "link" ? faviconTag(a) : quoteSVG();
-          return `<div class="msg-att"><span class="chip-icon">${icon}</span><span class="msg-att-title">${escapeHTML(
-            a.title
-          )}</span></div>`;
-        })
-        .join("") +
-      "</div>";
+  if (m.kind === "def" && m.def) {
+    el.classList.add("bubble-def");
+    html = definitionCardHTML(m.def);
+  } else {
+    if (m.atts && m.atts.length) {
+      html +=
+        '<div class="msg-atts">' +
+        m.atts
+          .map((a) => {
+            const icon = (a.type === "link" || a.type === "page") ? faviconTag(a) : quoteSVG();
+            return `<div class="msg-att"><span class="chip-icon">${icon}</span><span class="msg-att-title">${escapeHTML(
+              a.title
+            )}</span></div>`;
+          })
+          .join("") +
+        "</div>";
+    }
+    if (m.text) html += `<div class="msg-text">${renderRich(m.text)}</div>`;
   }
-  if (m.text) html += `<div class="msg-text">${renderRich(m.text)}</div>`;
   el.innerHTML = html;
-  return el;
+
+  if (m.side !== "received") return el;
+
+  // Tin cua AI: kem avatar ngoi sao (chi hien o bong bong cuoi cua cum)
+  const row = document.createElement("div");
+  row.className = "msg-row" + (first ? " first" : "");
+  const slot = document.createElement("div");
+  slot.className = "avatar-slot";
+  if (tail) slot.innerHTML = STAR_AV;
+  row.appendChild(slot);
+  row.appendChild(el);
+  return row;
 }
 
 function addMessage(side, text, atts) {
@@ -269,7 +332,9 @@ function buildPrompt(text, atts) {
   const parts = [];
   (atts || []).forEach((a) => {
     if (a.type === "link") parts.push("[Link] " + a.url);
-    else parts.push("[Trich dan] " + a.text);
+    else if (a.type === "page")
+      parts.push("[Nội dung trang: " + (a.title || a.url) + " — " + a.url + "]\n" + (a.text || ""));
+    else parts.push("[Trích dẫn] " + a.text);
   });
   if (text) parts.push(text);
   return parts.join("\n\n") || text || "";
@@ -416,16 +481,35 @@ async function respond(userText, atts) {
     addMessage("received", full || "(model khong tra ve noi dung — thu doi model o nut ☀️)", []);
   } catch (err) {
     hideTyping();
-    addMessage("received", "⚠️ Loi goi API: " + (err && err.message ? err.message : String(err)), []);
+    addMessage("received", friendlyError(err), []);
   }
+}
+
+// Dich loi API sang thong bao de hieu + huong xu ly
+function friendlyError(err) {
+  const m = err && err.message ? err.message : String(err);
+  if (/Failed to fetch|NetworkError|Load failed/i.test(m))
+    return "⚠️ Không gọi được API (lỗi mạng hoặc CORS). Vào chrome://extensions bấm Reload ⟳ trên extension rồi thử lại; kiểm tra kết nối mạng.";
+  if (/\b401\b|Authentication|invalid.*key|Unauthorized/i.test(m))
+    return "⚠️ API key không hợp lệ (401). Mở nút ☀️, chọn đúng nhà cung cấp và dán lại key.";
+  if (/\b402\b|Insufficient|balance/i.test(m))
+    return "⚠️ Tài khoản DeepSeek hết số dư (402). API DeepSeek tính phí — nạp tiền tại platform.deepseek.com. (Chat web miễn phí nhưng API thì không.)";
+  if (/\b400\b|Model.*Exist|\b404\b|not found/i.test(m))
+    return "⚠️ Model không hợp lệ hoặc yêu cầu sai (" + m + "). Thử chọn model khác ở nút ☀️.";
+  if (/\b429\b|rate limit/i.test(m))
+    return "⚠️ Bị giới hạn tần suất (429). Chờ một lát rồi thử lại.";
+  return "⚠️ Lỗi gọi API: " + m;
 }
 function showTyping() {
   hideTyping();
-  const el = document.createElement("div");
-  el.className = "typing-bubble";
-  el.id = "typing";
-  el.innerHTML = "<span></span><span></span><span></span>";
-  messagesEl.appendChild(el);
+  const row = document.createElement("div");
+  row.className = "msg-row";
+  row.id = "typing";
+  row.innerHTML =
+    '<div class="avatar-slot">' +
+    STAR_AV.replace('class="star-av"', 'class="star-av spin"') +
+    '</div><div class="typing-bubble"><span></span><span></span><span></span></div>';
+  messagesEl.appendChild(row);
   scrollBottom();
 }
 function hideTyping() {
@@ -542,20 +626,48 @@ async function lookupWord(word) {
   const data = await loadLetter(letter);
   return data[w] || null;
 }
-function formatDefinition(e) {
-  let s = e.w + (e.ipa ? "  " + e.ipa : "") + "\n";
+const VI_POS = new Set([
+  "danh từ", "động từ", "ngoại động từ", "nội động từ", "tính từ", "phó từ",
+  "trạng từ", "giới từ", "đại từ", "liên từ", "thán từ", "mạo từ", "số từ", "viết tắt",
+]);
+const VI_CHARS = /[ăâđêôơưàáảãạằắẳẵặầấẩẫậèéẻẽẹềếểễệìíỉĩịòóỏõọồốổỗộờớởỡợùúủũụừứửữựỳýỷỹỵ]/i;
+function posClass(p) {
+  p = (p || "").toLowerCase();
+  if (p.includes("noun")) return "noun";
+  if (p.includes("verb")) return "verb";
+  if (p.includes("adjective")) return "adj";
+  if (p.includes("adverb")) return "adv";
+  return "other";
+}
+function definitionCardHTML(e) {
+  let h = '<div class="defcard">';
+  h += '<div class="def-head"><span class="def-word">' + escapeHTML(e.w) + "</span>";
+  if (e.ipa) h += '<span class="def-ipa">' + escapeHTML(e.ipa) + "</span>";
+  h += "</div>";
   if (e.en && e.en.length) {
-    s += "\n🇬🇧 English\n";
+    h += '<div class="def-sec"><div class="def-lang def-lang-en">English</div>';
     e.en.forEach((m) => {
-      s += "• " + (m.p ? "(" + m.p + ") " : "") + m.d + "\n";
-      if (m.e) s += "   ↳ " + m.e + "\n";
+      h += '<div class="def-item">';
+      if (m.p) h += '<span class="pos pos-' + posClass(m.p) + '">' + escapeHTML(m.p) + "</span>";
+      h += '<span class="def-mean">' + escapeHTML(m.d) + "</span>";
+      if (m.e) h += '<div class="def-ex">' + escapeHTML(m.e) + "</div>";
+      h += "</div>";
     });
+    h += "</div>";
   }
   if (e.vi && e.vi.length) {
-    s += "\n🇻🇳 Tiếng Việt\n";
-    e.vi.forEach((v) => (s += "• " + v + "\n"));
+    h += '<div class="def-sec"><div class="def-lang def-lang-vi">Tiếng Việt</div>';
+    e.vi.forEach((line) => {
+      const t = (line || "").trim();
+      if (!t) return;
+      if (VI_POS.has(t.toLowerCase())) h += '<div class="pos-vi">' + escapeHTML(t) + "</div>";
+      else if (!VI_CHARS.test(t)) h += '<div class="def-ex">' + escapeHTML(t) + "</div>";
+      else h += '<div class="def-vi-item">' + escapeHTML(t) + "</div>";
+    });
+    h += "</div>";
   }
-  return s.trim();
+  h += "</div>";
+  return h;
 }
 // Tra tu ngay tren may, KHONG goi server
 async function defineWordLocal(word) {
@@ -568,8 +680,13 @@ async function defineWordLocal(word) {
   updateSend();
   updateSuggestions();
   const entry = await lookupWord(word);
-  if (entry) addMessage("received", formatDefinition(entry), []);
-  else addMessage("received", "Không tìm thấy “" + word + "” trong từ điển offline.", []);
+  if (entry) {
+    messages.push({ side: "received", t: Date.now(), atts: [], kind: "def", def: entry });
+    save();
+    render();
+  } else {
+    addMessage("received", "Không tìm thấy “" + word + "” trong từ điển offline.", []);
+  }
 }
 sgDefBtn.addEventListener("click", () => {
   const w = currentSingleWord();

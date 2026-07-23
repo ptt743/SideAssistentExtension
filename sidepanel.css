@@ -416,3 +416,59 @@ body {
 /* Nut Dinh nghia noi bat hon */
 .sg-btn.sg-def { background: var(--accent); color: #fff; border-color: var(--accent); }
 .sg-btn.sg-def:hover { filter: brightness(1.05); background: var(--accent); }
+
+/* ---------- Avatar ngoi sao cho AI + hieu ung xoay ---------- */
+.msg-row { display: flex; align-items: flex-end; gap: 6px; margin-top: 3px; }
+.msg-row.first { margin-top: 10px; }
+.msg-row .bubble { margin-top: 0; align-self: flex-end; }
+.msg-row .typing-bubble { margin-top: 0; align-self: flex-end; }
+
+.avatar-slot { width: 26px; height: 26px; flex-shrink: 0; display: grid; place-items: center; }
+.star-av {
+  width: 26px; height: 26px; border-radius: 50%;
+  background: linear-gradient(145deg, #ffd36b, #ff9f45);
+  display: grid; place-items: center;
+  box-shadow: 0 1px 3px rgba(0,0,0,.12);
+}
+.star-av svg { width: 15px; height: 15px; fill: #fff; }
+.star-av.spin { animation: star-spin 1s linear infinite; }
+@keyframes star-spin { to { transform: rotate(360deg); } }
+
+/* ---------- The dinh nghia ---------- */
+.bubble.bubble-def { max-width: 88%; padding: 12px 14px; }
+.defcard { font-size: 14px; line-height: 1.4; }
+.def-head {
+  display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap;
+  padding-bottom: 8px; margin-bottom: 8px;
+  border-bottom: 1px solid var(--bubble-border);
+}
+.def-word { font-size: 19px; font-weight: 700; color: var(--text); }
+.def-ipa { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 13px; color: var(--accent); }
+.def-sec { margin-top: 10px; }
+.def-lang {
+  font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px;
+  margin-bottom: 6px;
+}
+.def-lang-en { color: #1a73e8; }
+.def-lang-vi { color: #e0524d; }
+.def-item { margin: 7px 0; }
+.pos {
+  display: inline-block; font-size: 11px; font-weight: 700;
+  padding: 1px 8px; border-radius: 6px; margin-right: 7px; vertical-align: middle;
+}
+.pos-noun { background: #e8f0fe; color: #1967d2; }
+.pos-verb { background: #e6f4ea; color: #188038; }
+.pos-adj  { background: #fce8e6; color: #c5221f; }
+.pos-adv  { background: #fef7e0; color: #b06000; }
+.pos-other{ background: #f1f3f4; color: #5f6368; }
+.def-mean { color: var(--text); }
+.def-ex {
+  margin: 4px 0 0 2px; padding-left: 10px;
+  border-left: 2px solid #dcdce1; color: var(--secondary); font-style: italic;
+}
+.pos-vi {
+  display: inline-block; font-size: 11px; font-weight: 700;
+  color: #e0524d; background: #fdecea;
+  padding: 1px 8px; border-radius: 6px; margin: 8px 0 3px;
+}
+.def-vi-item { margin: 3px 0; color: var(--text); }
