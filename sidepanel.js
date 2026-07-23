@@ -798,8 +798,6 @@ if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.local) {
 const MODELS = [
   { id: "deepseek-v4-flash", name: "DeepSeek V4 Flash", provider: "DeepSeek" },
   { id: "deepseek-v4-pro", name: "DeepSeek V4 Pro", provider: "DeepSeek" },
-  { id: "gemini-3.5-flash", name: "Gemini 3.5 Flash", provider: "Google" },
-  { id: "gemini-3-flash-preview", name: "Gemini 3 Flash (preview)", provider: "Google" },
 ];
 
 const modelBtn = document.getElementById("modelBtn");
@@ -819,6 +817,8 @@ function loadSettings(cb) {
     chrome.storage.local.get("settings", (d) => {
       if (d && d.settings) settings = Object.assign({ model: MODELS[0].id, keys: {} }, d.settings);
       if (!settings.keys) settings.keys = {};
+      // Neu model da luu khong con trong danh sach (vd Gemini da bo) -> ve mac dinh
+      if (!MODELS.some((x) => x.id === settings.model)) settings.model = MODELS[0].id;
       // Chuyen doi tu ban cu (mot key chung) sang key theo nha cung cap
       if (d && d.settings && d.settings.apiKey && !Object.keys(settings.keys).length) {
         settings.keys[currentProvider()] = d.settings.apiKey;
