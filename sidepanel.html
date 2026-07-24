@@ -20,17 +20,66 @@
     </label>
   </div>
 
+  <div id="moonPanel" class="moon-panel">
+    <div class="mp-title">Công cụ trang</div>
+    <div class="mp-list" id="moonList"></div>
+  </div>
+
+  <div id="msgMenu" class="msg-menu">
+    <button class="mm-item" data-act="copy">
+      <svg viewBox="0 0 24 24"><path d="M9 9h9v11H9zM6 4h9v2H8v9H6z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
+      <span>Copy</span>
+    </button>
+    <button class="mm-item" data-act="quote">
+      <svg viewBox="0 0 24 24"><path d="M7 7h4v5l-2 4H7l1.5-4H7zm7 0h4v5l-2 4h-2l1.5-4H14z" fill="currentColor"/></svg>
+      <span>Quote</span>
+    </button>
+    <button class="mm-item" data-act="obsidian">
+      <svg viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M14 3v4h4M9 13h6M9 17h6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+      <span>Lưu Obsidian</span>
+    </button>
+  </div>
+
+  <div id="obsModal" class="obs-modal">
+    <div class="obs-card">
+      <div class="obs-title">Cấu hình Obsidian</div>
+      <div class="obs-desc">Để lưu được, cần bật plugin miễn phí "Local REST API" trong Obsidian:</div>
+      <ol class="obs-steps">
+        <li>Obsidian → <b>Settings → Community plugins</b> → Browse → cài & bật <b>“Local REST API”</b>.</li>
+        <li>Mở cài đặt plugin. <b>Dễ nhất:</b> bật công tắc <b>“Enable Non-encrypted (HTTP) Server”</b> (dòng HTTP 27123 sẽ hết dấu ✗ đỏ), rồi chọn <b>HTTP</b> bên dưới.</li>
+        <li>Copy <b>API Key</b> trong plugin, dán vào ô bên dưới.</li>
+        <li>Giữ <b>Obsidian mở</b> mỗi khi lưu.</li>
+      </ol>
+      <div class="obs-note">Nếu muốn dùng HTTPS (27124) mà không bật HTTP: phải bấm “this certificate” trong plugin để cài chứng chỉ tin cậy, rồi chọn HTTPS bên dưới.</div>
+      <label class="obs-field"><span>API key</span><input id="obsKey" type="password" placeholder="Dán API key..." autocomplete="off" /></label>
+      <label class="obs-field"><span>Tên note</span><input id="obsNote" type="text" placeholder="Claude Chat.md" /></label>
+      <div class="obs-checks">
+        <label class="obs-check"><input type="checkbox" id="obsDate" /> Kèm ngày vào tên file <i>(file mới mỗi ngày)</i></label>
+        <label class="obs-check"><input type="checkbox" id="obsTime" /> Kèm giờ:phút vào tên file <i>(file mới mỗi lần lưu)</i></label>
+        <div class="obs-hint">Không tick ô nào → luôn nối (append) vào cùng một file.</div>
+      </div>
+      <label class="obs-field"><span>Kết nối</span>
+        <select id="obsProto">
+          <option value="http:27123">HTTP · cổng 27123 (bật HTTP Server trong plugin)</option>
+          <option value="https:27124">HTTPS · cổng 27124 (cần cài chứng chỉ)</option>
+        </select>
+      </label>
+      <div class="obs-actions">
+        <button id="obsTest" class="obs-btn">Kiểm tra kết nối</button>
+        <span class="obs-spacer"></span>
+        <button id="obsCancel" class="obs-btn">Hủy</button>
+        <button id="obsSave" class="obs-btn obs-primary">Lưu</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Tin nhan -->
   <main class="messages" id="messages"></main>
 
   <!-- Nhap tin -->
   <footer class="composer">
     <div class="attachments" id="attachments"></div>
-    <div class="suggestions" id="suggestions">
-      <button class="sg-btn sg-def" id="sgDef">Định nghĩa</button>
-      <button class="sg-btn" data-instr="Dịch sang tiếng Việt">Dịch sang tiếng Việt</button>
-      <button class="sg-btn" data-instr="Tóm tắt ý chính">Tóm tắt ý chính</button>
-    </div>
+    <div class="suggestions" id="suggestions"></div>
     <div class="composer-row">
       <button id="addPageBtn" class="page-btn" title="Lấy nội dung trang hiện tại">
         <svg viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" fill="currentColor"/></svg>

@@ -95,16 +95,29 @@ function addSelectedText(text, srcUrl) {
   });
 }
 
-// Ham chay TRONG trang de trich noi dung van ban chinh
+// Ham chay TRONG trang de trich noi dung. Trang bai viet -> lay article/main;
+// trang chu/danh sach -> lay toan bo text hien thi cua trang.
 function __extractPageContent() {
   try {
-    var pick = document.querySelector("article") || document.querySelector("main") || document.body;
-    var clone = pick.cloneNode(true);
+    var tlen = function (el) { return el ? (el.innerText || "").trim().length : 0; };
+    var body = document.body;
+    var bodyLen = tlen(body);
+    var cand = null, candLen = 0;
+    ["main", "article"].forEach(function (sel) {
+      var el = document.querySelector(sel);
+      if (!el) return;
+      var l = tlen(el);
+      // chi dung neu du lon (bai viet thuc su), khong thi de trang chu roi vao body
+      if ((l >= 1500 || l >= bodyLen * 0.4) && l > candLen) { cand = el; candLen = l; }
+    });
+    var root = cand || body;
+    var clone = root.cloneNode(true);
+    // chi bo cac phan KHONG phai noi dung; giu nav/header vi tren trang chu do la tin bai
     clone.querySelectorAll(
-      'script,style,noscript,svg,canvas,iframe,nav,header,footer,aside,form,button,[aria-hidden="true"]'
+      'script,style,noscript,svg,canvas,iframe,template,link,[hidden],[aria-hidden="true"]'
     ).forEach(function (n) { n.remove(); });
     var text = (clone.innerText || clone.textContent || "")
-      .replace(/[ \t]{2,}/g, " ")
+      .replace(/[ \t]+/g, " ")
       .replace(/\n{3,}/g, "\n\n")
       .trim();
     return { title: document.title || location.hostname, url: location.href, text: text };
@@ -136,7 +149,7 @@ function addCurrentTab() {
           addMessage("received", "Trang không có nội dung văn bản để lấy.", []);
           return;
         }
-        const MAX = 20000;
+        const MAX = 40000;
         const truncated = text.length > MAX;
         if (truncated) text = text.slice(0, MAX);
         const host = hostOf(r.url || tab.url);
@@ -214,7 +227,7 @@ function render() {
     const next = messages[i + 1];
     const first = !prev || prev.side !== m.side;
     const tail = !next || next.side !== m.side;
-    messagesEl.appendChild(makeBubble(m, first, tail));
+    messagesEl.appendChild(makeBubble(m, first, tail, i));
   });
 
   const last = messages[messages.length - 1];
@@ -322,10 +335,9 @@ function attachCodeCopy() {
 const STAR_AV =
   '<div class="star-av"><svg viewBox="0 0 24 24"><path d="M12 2l2.7 6.5L21.5 9l-5 4.4 1.6 6.6L12 16.6 5.9 20l1.6-6.6-5-4.4 6.8-.5z"/></svg></div>';
 
-function makeBubble(m, first, tail) {
+function makeBubble(m, first, tail, idx) {
   const el = document.createElement("div");
-  el.className =
-    "bubble " + m.side + (m.side === "sent" && first ? " first" : "") + (tail ? " tail" : "");
+  el.className = "bubble " + m.side + (tail ? " tail" : "");
   let html = "";
   if (m.kind === "def" && m.def) {
     el.classList.add("bubble-def");
@@ -347,12 +359,20 @@ function makeBubble(m, first, tail) {
     if (m.text) html += `<div class="msg-text">${renderRich(m.text)}</div>`;
   }
   el.innerHTML = html;
+  el.className += (m.side === "sent" && first ? " first" : "");
+
+  const dots = document.createElement("button");
+  dots.className = "msg-dots";
+  dots.dataset.i = idx;
+  dots.title = "Tùy chọn";
+  dots.innerHTML =
+    '<svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg>';
+  el.appendChild(dots); // dots NAM TRONG bong bong
 
   if (m.side !== "received") return el;
 
-  // Tin cua AI: kem avatar ngoi sao (chi hien o bong bong cuoi cua cum)
   const row = document.createElement("div");
-  row.className = "msg-row" + (first ? " first" : "");
+  row.className = "msg-row received" + (first ? " first" : "");
   const slot = document.createElement("div");
   slot.className = "avatar-slot";
   if (tail) slot.innerHTML = STAR_AV;
@@ -611,7 +631,17 @@ function updateSend() {
 
 /* =================== GOI Y =================== */
 const suggestionsEl = document.getElementById("suggestions");
-const sgDefBtn = document.getElementById("sgDef");
+let suggestMode = "default"; // "default" | "group"
+const groupSelected = new Set();
+const GROUP_OPTIONS = [
+  { label: "Tiếng Việt", instr: "Dịch sang tiếng Việt" },
+  { label: "Tiếng Anh", instr: "Dịch sang tiếng Anh" },
+  { label: "Tiếng Trung", instr: "Dịch sang tiếng Trung" },
+  { label: "Chính tả & ngữ pháp", instr: "Sửa chính tả và ngữ pháp" },
+  { label: "Trang trọng", instr: "Viết lại văn phong trang trọng" },
+  { label: "Thân thiện", instr: "Viết lại văn phong thân thiện" },
+  { label: "Ngắn gọn", instr: "Viết lại ngắn gọn hơn" },
+];
 
 // Text hien tai co phai 1 tu tieng Anh khong?
 function currentSingleWord() {
@@ -626,9 +656,54 @@ function currentSingleWord() {
 function updateSuggestions() {
   const has = input.value.trim().length > 0 || attachments.length > 0;
   suggestionsEl.classList.toggle("show", has);
-  sgDefBtn.style.display = currentSingleWord() ? "" : "none";
+  if (!has) { suggestMode = "default"; groupSelected.clear(); }
+  suggestionsEl.classList.toggle("multi", suggestMode === "group");
+  let html = "";
+  if (suggestMode === "group") {
+    html += '<button class="sg-btn sg-back" data-act="back" title="Đóng">✕</button>';
+    html += '<div class="sg-track" id="sgTrack">';
+    GROUP_OPTIONS.forEach(
+      (o, i) =>
+        (html +=
+          '<button class="sg-btn sg-opt' + (groupSelected.has(o.instr) ? " sel" : "") + '" data-oi="' + i + '" style="animation-delay:' + i * 35 + 'ms">' + escapeHTML(o.label) + "</button>")
+    );
+    html += "</div>";
+    html += '<button class="sg-btn sg-ok" data-act="ok"' + (groupSelected.size ? "" : " disabled") + ">OK</button>";
+  } else {
+    if (currentSingleWord()) html += '<button class="sg-btn sg-def" data-act="def">Định nghĩa</button>';
+    html += '<button class="sg-btn" data-instr="Tóm tắt ý chính">Tóm tắt ý chính</button>';
+    html += '<button class="sg-btn" data-act="group">Phiên dịch, văn phong &amp; chính tả</button>';
+    html += '<button class="sg-btn sg-obs" data-act="obs">Lưu Obsidian</button>';
+  }
+  suggestionsEl.innerHTML = html;
+  suggestionsEl.querySelectorAll(".sg-btn").forEach((b) => b.addEventListener("click", () => onSgClick(b)));
+}
+function onSgClick(b) {
+  const act = b.dataset.act;
+  if (act === "def") { const w = currentSingleWord(); if (w) defineWordLocal(w); return; }
+  if (act === "obs") { saveTextToObsidian(buildPrompt(input.value.trim(), attachments), "Ghi chú"); return; }
+  if (act === "group") { suggestMode = "group"; groupSelected.clear(); updateSuggestions(); return; }
+  if (act === "back") { suggestMode = "default"; groupSelected.clear(); updateSuggestions(); return; }
+  if (act === "ok") {
+    if (!groupSelected.size) return;
+    const instr = "Áp dụng các yêu cầu sau cho nội dung bên dưới (giữ nguyên ý, trả về kết quả): " + [...groupSelected].join("; ") + ".";
+    sendSuggestion(instr);
+    return;
+  }
+  if (b.dataset.oi !== undefined) {
+    const o = GROUP_OPTIONS[+b.dataset.oi];
+    if (groupSelected.has(o.instr)) groupSelected.delete(o.instr);
+    else groupSelected.add(o.instr);
+    b.classList.toggle("sel");
+    const ok = suggestionsEl.querySelector(".sg-ok");
+    if (ok) ok.disabled = groupSelected.size === 0;
+    return;
+  }
+  if (b.dataset.instr) sendSuggestion(b.dataset.instr);
 }
 function sendSuggestion(instr) {
+  suggestMode = "default";
+  groupSelected.clear();
   const extra = input.value.trim();
   const text = extra ? instr + "\n\n" + extra : instr;
   const atts = attachments.slice();
@@ -641,10 +716,6 @@ function sendSuggestion(instr) {
   updateSuggestions();
   respond(text, atts);
 }
-// Chi noi cac goi y model (co data-instr); nut Dinh nghia xu ly rieng (local)
-suggestionsEl.querySelectorAll(".sg-btn[data-instr]").forEach((b) =>
-  b.addEventListener("click", () => sendSuggestion(b.dataset.instr))
-);
 
 /* =================== TU DIEN OFFLINE (local) =================== */
 const dictCache = {};
@@ -663,17 +734,28 @@ async function loadLetter(letter) {
   }
   return dictCache[letter];
 }
+function lemmaCandidates(w) {
+  const c = [w];
+  if (w.length > 4 && w.endsWith("ies")) c.push(w.slice(0, -3) + "y");
+  if (w.length > 3 && w.endsWith("es")) c.push(w.slice(0, -2));
+  if (w.length > 3 && w.endsWith("s") && !w.endsWith("ss")) c.push(w.slice(0, -1));
+  if (w.length > 3 && w.endsWith("ed")) {
+    c.push(w.slice(0, -2)); c.push(w.slice(0, -1));
+    if (w[w.length - 3] === w[w.length - 4]) c.push(w.slice(0, -3));
+  }
+  if (w.length > 4 && w.endsWith("ing")) {
+    c.push(w.slice(0, -3)); c.push(w.slice(0, -3) + "e");
+    if (w[w.length - 4] === w[w.length - 5]) c.push(w.slice(0, -4));
+  }
+  return [...new Set(c)];
+}
 async function lookupWord(word) {
   const w = word.toLowerCase().trim();
   const letter = /^[a-z]/.test(w) ? w[0] : "misc";
   const data = await loadLetter(letter);
-  return data[w] || null;
+  for (const c of lemmaCandidates(w)) if (data[c]) return data[c];
+  return null;
 }
-const VI_POS = new Set([
-  "danh từ", "động từ", "ngoại động từ", "nội động từ", "tính từ", "phó từ",
-  "trạng từ", "giới từ", "đại từ", "liên từ", "thán từ", "mạo từ", "số từ", "viết tắt",
-]);
-const VI_CHARS = /[ăâđêôơưàáảãạằắẳẵặầấẩẫậèéẻẽẹềếểễệìíỉĩịòóỏõọồốổỗộờớởỡợùúủũụừứửữựỳýỷỹỵ]/i;
 function posClass(p) {
   p = (p || "").toLowerCase();
   if (p.includes("noun")) return "noun";
@@ -700,12 +782,15 @@ function definitionCardHTML(e) {
   }
   if (e.vi && e.vi.length) {
     h += '<div class="def-sec"><div class="def-lang def-lang-vi">Tiếng Việt</div>';
-    e.vi.forEach((line) => {
-      const t = (line || "").trim();
-      if (!t) return;
-      if (VI_POS.has(t.toLowerCase())) h += '<div class="pos-vi">' + escapeHTML(t) + "</div>";
-      else if (!VI_CHARS.test(t)) h += '<div class="def-ex">' + escapeHTML(t) + "</div>";
-      else h += '<div class="def-vi-item">' + escapeHTML(t) + "</div>";
+    e.vi.forEach((g) => {
+      if (typeof g === "string") { h += '<div class="def-vi-item">' + escapeHTML(g) + "</div>"; return; }
+      h += '<div class="def-group">';
+      if (g.pos) h += '<span class="pos pos-vi">' + escapeHTML(g.pos) + "</span>";
+      if (g.means && g.means.length)
+        h += '<ul class="def-vi-list">' + g.means.map((x) => "<li>" + escapeHTML(x) + "</li>").join("") + "</ul>";
+      if (g.ex && g.ex.length)
+        g.ex.forEach((x) => (h += '<div class="def-ex"><span class="ex-en">' + escapeHTML(x.en) + "</span> — " + escapeHTML(x.vi) + "</div>"));
+      h += "</div>";
     });
     h += "</div>";
   }
@@ -731,14 +816,9 @@ async function defineWordLocal(word) {
     addMessage("received", "Không tìm thấy “" + word + "” trong từ điển offline.", []);
   }
 }
-sgDefBtn.addEventListener("click", () => {
-  const w = currentSingleWord();
-  if (w) defineWordLocal(w);
-});
-
 /* =================== SU KIEN =================== */
 sendBtn.addEventListener("click", send);
-if (addPageBtn) addPageBtn.addEventListener("click", addCurrentTab);
+if (addPageBtn) addPageBtn.addEventListener("click", (e) => { e.stopPropagation(); toggleMoon(); });
 input.addEventListener("input", () => {
   autoGrow();
   updateSend();
@@ -899,3 +979,199 @@ loadSettings(() => {
   updateActiveLabel();
   syncKeyInput();
 });
+
+/* =================== MENU CONG CU TRANG (nut mat trang) =================== */
+const moonPanel = document.getElementById("moonPanel");
+const moonListEl = document.getElementById("moonList");
+
+// Them tuy chon moi vao day trong tuong lai
+const PAGE_ACTIONS = [
+  { name: "Lấy nội dung trang hiện tại", sub: "Trích văn bản trang đang mở", run: addCurrentTab },
+  { name: "Cấu hình Obsidian", sub: "Dán API key Local REST API", run: configObsidian },
+];
+
+function renderMoonList() {
+  moonListEl.innerHTML = PAGE_ACTIONS.map(
+    (a, i) =>
+      `<button class="model-row moon-row" data-i="${i}">
+        <span class="mr-main">
+          <span class="mr-name">${escapeHTML(a.name)}</span>
+          <span class="mr-sub">${escapeHTML(a.sub || "")}</span>
+        </span>
+      </button>`
+  ).join("");
+  moonListEl.querySelectorAll(".moon-row").forEach((b) =>
+    b.addEventListener("click", () => {
+      toggleMoon(false);
+      const a = PAGE_ACTIONS[+b.dataset.i];
+      if (a && a.run) a.run();
+    })
+  );
+}
+function toggleMoon(open) {
+  const show = open === undefined ? !moonPanel.classList.contains("open") : open;
+  moonPanel.classList.toggle("open", show);
+}
+moonPanel.addEventListener("click", (e) => e.stopPropagation());
+document.addEventListener("click", () => toggleMoon(false));
+renderMoonList();
+
+/* =================== MENU MOI TIN NHAN (...) =================== */
+const msgMenu = document.getElementById("msgMenu");
+let menuTargetIndex = -1;
+
+function messagePlainText(m) {
+  if (!m) return "";
+  if (m.text) return m.text;
+  if (m.kind === "def" && m.def) {
+    const e = m.def;
+    let s = e.w + (e.ipa ? " " + e.ipa : "");
+    (e.en || []).forEach((x) => (s += "\n- " + (x.p ? "(" + x.p + ") " : "") + x.d));
+    (e.vi || []).forEach((g) => {
+      if (typeof g === "string") { s += "\n- " + g; return; }
+      if (g.pos) s += "\n[" + g.pos + "]";
+      (g.means || []).forEach((x) => (s += "\n- " + x));
+    });
+    return s;
+  }
+  return "";
+}
+function openMsgMenu(btn, i) {
+  menuTargetIndex = i;
+  msgMenu.classList.add("open");
+  const r = btn.getBoundingClientRect();
+  const mh = msgMenu.offsetHeight || 90, mw = msgMenu.offsetWidth || 130;
+  let top = r.bottom + 4, vy = "top";
+  if (top + mh > window.innerHeight - 8) { top = r.top - mh - 4; vy = "bottom"; }
+  let left = r.left, vx = "left";
+  if (left + mw > window.innerWidth - 8) { left = window.innerWidth - 8 - mw; vx = "right"; }
+  msgMenu.style.transformOrigin = vy + " " + vx; // bung ra tu goc gan nut nhat
+  msgMenu.style.top = Math.max(8, top) + "px";
+  msgMenu.style.left = Math.max(8, left) + "px";
+}
+function closeMsgMenu() { msgMenu.classList.remove("open"); menuTargetIndex = -1; }
+
+messagesEl.addEventListener("click", (e) => {
+  const dots = e.target.closest(".msg-dots");
+  if (dots) {
+    e.stopPropagation();
+    const i = +dots.dataset.i;
+    if (msgMenu.classList.contains("open") && menuTargetIndex === i) closeMsgMenu();
+    else openMsgMenu(dots, i);
+  }
+});
+msgMenu.addEventListener("click", (e) => {
+  const it = e.target.closest(".mm-item");
+  if (!it) return;
+  e.stopPropagation();
+  const m = messages[menuTargetIndex];
+  const txt = messagePlainText(m);
+  if (it.dataset.act === "copy") {
+    if (txt) navigator.clipboard.writeText(txt).catch(() => {});
+  } else if (it.dataset.act === "quote") {
+    if (txt) pushAttachment({ type: "text", text: txt, title: txt.replace(/\s+/g, " "), subtitle: "Trích tin nhắn" });
+  } else if (it.dataset.act === "obsidian") {
+    saveToObsidian(m); // giu nguyen cu chi nguoi dung de mo hop thoai chon thu muc
+  }
+  closeMsgMenu();
+});
+document.addEventListener("click", closeMsgMenu);
+
+/* =================== LUU VAO OBSIDIAN (Local REST API - qua fetch) =================== */
+const OBS_NOTE_DEFAULT = "Claude Chat.md";
+const OBS_PORT_DEFAULT = 27123; // HTTP port cua plugin Local REST API
+function obsKeyClean(k) {
+  return (k || "").trim().replace(/^Bearer\s+/i, "").trim();
+}
+function obsPad(n) { return String(n).padStart(2, "0"); }
+function obsNoteName() {
+  let name = (settings.obsidianNote || OBS_NOTE_DEFAULT).trim();
+  let base = name, ext = ".md";
+  if (/\.md$/i.test(name)) base = name.slice(0, -3);
+  const d = new Date();
+  let suffix = "";
+  if (settings.obsidianDateStamp) suffix += " " + d.getFullYear() + "-" + obsPad(d.getMonth() + 1) + "-" + obsPad(d.getDate());
+  if (settings.obsidianTimeStamp) suffix += " " + obsPad(d.getHours()) + "-" + obsPad(d.getMinutes());
+  return base + suffix + ext;
+}
+function obsBase() {
+  const proto = settings.obsidianProto || "http";
+  const port = settings.obsidianPort || (proto === "https" ? 27124 : 27123);
+  return proto + "://127.0.0.1:" + port;
+}
+
+const obsModal = document.getElementById("obsModal");
+function configObsidian() {
+  document.getElementById("obsKey").value = settings.obsidianKey || "";
+  document.getElementById("obsNote").value = settings.obsidianNote || OBS_NOTE_DEFAULT;
+  document.getElementById("obsDate").checked = !!settings.obsidianDateStamp;
+  document.getElementById("obsTime").checked = !!settings.obsidianTimeStamp;
+  document.getElementById("obsProto").value =
+    (settings.obsidianProto || "http") + ":" + (settings.obsidianPort || (settings.obsidianProto === "https" ? 27124 : 27123));
+  obsModal.classList.add("open");
+}
+if (obsModal) {
+  obsModal.addEventListener("click", (e) => { if (e.target === obsModal) obsModal.classList.remove("open"); });
+  document.getElementById("obsCancel").addEventListener("click", () => obsModal.classList.remove("open"));
+  document.getElementById("obsSave").addEventListener("click", () => {
+    settings.obsidianKey = obsKeyClean(document.getElementById("obsKey").value);
+    settings.obsidianNote = document.getElementById("obsNote").value.trim() || OBS_NOTE_DEFAULT;
+    settings.obsidianDateStamp = document.getElementById("obsDate").checked;
+    settings.obsidianTimeStamp = document.getElementById("obsTime").checked;
+    const [proto, port] = document.getElementById("obsProto").value.split(":");
+    settings.obsidianProto = proto;
+    settings.obsidianPort = parseInt(port, 10) || OBS_PORT_DEFAULT;
+    saveSettings();
+    obsModal.classList.remove("open");
+    showToast("Đã lưu cấu hình Obsidian");
+  });
+  document.getElementById("obsTest").addEventListener("click", async () => {
+    const [proto, port] = document.getElementById("obsProto").value.split(":");
+    const key = obsKeyClean(document.getElementById("obsKey").value);
+    const url = proto + "://127.0.0.1:" + port + "/";
+    try {
+      const res = await fetch(url, { headers: key ? { Authorization: "Bearer " + key } : {} });
+      showToast(res.ok ? "✓ Kết nối Obsidian OK (" + proto.toUpperCase() + ")" : "⚠️ HTTP " + res.status, res.ok);
+    } catch (e) {
+      showToast("⚠️ Không kết nối được " + proto.toUpperCase() + ". " + (proto === "https" ? "Cần cài chứng chỉ, " : "Bật HTTP Server trong plugin, ") + "và mở Obsidian.", false, 6000);
+    }
+  });
+}
+async function saveTextToObsidian(text, title) {
+  if (!text || !text.trim()) { showToast("Không có nội dung để lưu", false); return; }
+  const key = obsKeyClean(settings.obsidianKey);
+  if (!key) { showToast("Chưa cấu hình Obsidian. Bấm 🌙 → 'Cấu hình Obsidian' để dán API key.", false, 5500); return; }
+  const note = obsNoteName();
+  const base = obsBase() + "/vault/" + encodeURIComponent(note);
+  const stamp = new Date().toLocaleString("vi-VN");
+  const block = "\n\n---\n\n### " + title + "  \n*" + stamp + "*\n\n" + text + "\n";
+  const headers = { "Authorization": "Bearer " + key, "Content-Type": "text/markdown" };
+  try {
+    let res = await fetch(base, { method: "POST", headers, body: block });
+    if (res.status === 404) {
+      res = await fetch(base, { method: "PUT", headers, body: block.replace(/^\n\n---\n\n/, "") });
+    }
+    if (res.ok) showToast("✓ Đã lưu vào Obsidian (note " + note + ")");
+    else {
+      const t = await res.text().catch(() => "");
+      showToast("⚠️ Lỗi HTTP " + res.status + (t ? ": " + t.slice(0, 120) : ""), false, 5500);
+    }
+  } catch (err) {
+    showToast("⚠️ Không kết nối được Obsidian. Mở Obsidian + bật plugin Local REST API (và HTTP server). " + (err.message || ""), false, 6500);
+  }
+}
+function saveToObsidian(m) {
+  return saveTextToObsidian(messagePlainText(m), m.side === "sent" ? "Câu hỏi" : "Trả lời");
+}
+
+// Toast nho
+function showToast(msg, ok = true, ms = 2500) {
+  let t = document.getElementById("toast");
+  if (!t) { t = document.createElement("div"); t.id = "toast"; t.className = "toast"; document.body.appendChild(t); }
+  t.textContent = msg;
+  t.classList.toggle("err", !ok);
+  t.classList.add("show");
+  clearTimeout(t._h);
+  t._h = setTimeout(() => t.classList.remove("show"), ms);
+}
+

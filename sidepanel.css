@@ -498,3 +498,167 @@ body {
   border-radius: 0 6px 6px 0;
 }
 .md-hr { border: none; border-top: 1px solid var(--bubble-border); margin: 10px 0; }
+
+/* ---------- Menu cong cu trang (nut mat trang) ---------- */
+.moon-panel {
+  position: fixed;
+  left: 8px; bottom: 58px;
+  z-index: 19;
+  width: 244px; max-height: 60vh; overflow-y: auto;
+  background: var(--bubble);
+  border: 1px solid var(--bubble-border);
+  border-radius: 16px;
+  box-shadow: 0 10px 34px rgba(0,0,0,.18);
+  padding: 10px;
+  transform: scale(.15);
+  transform-origin: bottom left;
+  opacity: 0; pointer-events: none;
+  transition: transform .22s cubic-bezier(.2,.85,.25,1.1), opacity .18s ease;
+}
+.moon-panel.open { transform: scale(1); opacity: 1; pointer-events: auto; }
+.moon-row .mr-name { font-weight: 500; }
+
+/* ---------- Nut ... duoi moi tin + menu ---------- */
+.msg-dots-bar { display: flex; margin: 1px 0 3px; }
+.msg-dots-bar.sent { justify-content: flex-end; }
+.msg-dots-bar.received { justify-content: flex-start; padding-left: 32px; }
+.msg-dots { border: none; background: transparent; cursor: pointer; padding: 2px 5px; border-radius: 6px; opacity: .4; }
+.msg-dots:hover { opacity: 1; background: rgba(0,0,0,.05); }
+.msg-dots svg { width: 20px; height: 14px; fill: var(--secondary); display: block; }
+
+.msg-menu {
+  position: fixed; z-index: 40; min-width: 130px;
+  background: var(--bubble); border: 1px solid var(--bubble-border);
+  border-radius: 12px; box-shadow: 0 8px 26px rgba(0,0,0,.18);
+  padding: 5px;
+  transform: scale(.15); transform-origin: top left;
+  opacity: 0; pointer-events: none;
+  transition: transform .22s cubic-bezier(.2,.85,.25,1.1), opacity .18s ease;
+}
+.msg-menu.open { transform: scale(1); opacity: 1; pointer-events: auto; }
+.mm-item {
+  display: block; width: 100%; text-align: left; border: none; background: transparent;
+  padding: 8px 12px; border-radius: 8px; font-size: 14px; color: var(--text);
+  cursor: pointer; font-family: inherit;
+}
+.mm-item:hover { background: rgba(0,0,0,.05); }
+
+.sg-btn.sg-back { padding: 6px 11px; font-weight: 700; }
+
+/* dots sat bong bong: AI -> goc duoi phai, user -> goc duoi trai */
+.msg-row.sent { justify-content: flex-end; }
+.msg-row.received { justify-content: flex-start; }
+.msg-row .msg-dots { flex-shrink: 0; align-self: flex-end; margin-bottom: 2px; }
+
+/* ---------- dots NAM TRONG bong bong (mau den, canh theo phia) ---------- */
+.bubble { position: relative; }
+.msg-dots {
+  position: absolute; bottom: 4px;
+  border: none; background: transparent; cursor: pointer;
+  padding: 2px; border-radius: 5px; line-height: 0; opacity: .7;
+}
+.msg-dots svg { width: 18px; height: 12px; fill: #111; display: block; }
+.msg-dots:hover { opacity: 1; background: rgba(0,0,0,.08); }
+.bubble.received .msg-dots { right: 6px; }
+.bubble.sent .msg-dots { left: 6px; }
+/* chua cho cho dots */
+.bubble.received { padding-right: 26px; }
+.bubble.sent { padding-left: 26px; }
+
+/* icon trong menu Copy/Quote */
+.mm-item { display: flex; align-items: center; gap: 9px; }
+.mm-item svg { width: 17px; height: 17px; color: var(--secondary); flex-shrink: 0; }
+
+/* nhom da lua chon - nhan ngan, tu xuong dong vua khit, hieu ung hien so le */
+.suggestions.multi { flex-wrap: nowrap; overflow: visible; align-items: center; }
+.sg-track { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; gap: 7px; }
+.sg-track .sg-btn { flex-shrink: 0; }
+.sg-opt { font-size: 12.5px; padding: 5px 11px; animation: chipIn .2s ease both; }
+@keyframes chipIn { from { opacity: 0; transform: scale(.82) translateY(4px); } }
+.sg-back, .sg-ok { flex-shrink: 0; align-self: center; }
+.sg-opt.sel { background: var(--accent); color: #fff; border-color: var(--accent); }
+.sg-ok { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 700; }
+.sg-ok:disabled { opacity: .4; cursor: default; }
+
+/* ---------- The tra tu (ban dep hon) ---------- */
+.bubble.bubble-def { max-width: 92%; padding: 13px 15px; }
+.defcard { font-size: 14px; line-height: 1.42; }
+.def-head { display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap; padding-bottom: 9px; margin-bottom: 2px; border-bottom: 1px solid var(--bubble-border); }
+.def-word { font-size: 20px; font-weight: 700; color: var(--text); }
+.def-ipa { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 13px; color: var(--accent); background: rgba(0,122,255,.09); padding: 1px 9px; border-radius: 10px; }
+.def-sec { margin-top: 12px; }
+.def-lang { font-size: 11px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; margin-bottom: 7px; }
+.def-lang-en { color: #1a73e8; }
+.def-lang-vi { color: #e0524d; }
+.def-item { margin: 8px 0; }
+.pos { display: inline-block; font-size: 11px; font-weight: 700; padding: 1px 8px; border-radius: 6px; margin-right: 7px; vertical-align: middle; }
+.pos-noun { background: #e8f0fe; color: #1967d2; }
+.pos-verb { background: #e6f4ea; color: #188038; }
+.pos-adj  { background: #fce8e6; color: #c5221f; }
+.pos-adv  { background: #fef7e0; color: #b06000; }
+.pos-other{ background: #f1f3f4; color: #5f6368; }
+.pos-vi   { background: #fdecea; color: #e0524d; }
+.def-mean { color: var(--text); }
+.def-group { margin: 9px 0; }
+.def-vi-list { margin: 5px 0 0; padding-left: 20px; }
+.def-vi-list li { margin: 3px 0; color: var(--text); }
+.def-ex { margin: 5px 0 0 2px; padding-left: 10px; border-left: 2px solid #e2e2e7; color: var(--secondary); font-style: italic; font-size: 13px; }
+.def-ex .ex-en { color: var(--text); font-style: normal; }
+
+/* ---------- Toast (noi bat giua panel) ---------- */
+.toast {
+  position: fixed; left: 50%; top: 50%; transform: translate(-50%,-50%) scale(.9);
+  background: rgba(28,28,30,.96); color: #fff; font-size: 14px; font-weight: 600;
+  padding: 16px 20px; border-radius: 14px; box-shadow: 0 10px 34px rgba(0,0,0,.35);
+  opacity: 0; pointer-events: none; transition: opacity .18s ease, transform .18s ease; z-index: 9999;
+  max-width: 86%; text-align: center; line-height: 1.4;
+}
+.toast.show { opacity: 1; transform: translate(-50%,-50%) scale(1); }
+.toast.err { background: rgba(197,34,31,.96); }
+
+/* ---------- Modal cau hinh Obsidian ---------- */
+.obs-modal {
+  position: fixed; inset: 0; z-index: 80;
+  background: rgba(0,0,0,.35);
+  display: none; align-items: center; justify-content: center;
+  padding: 16px;
+}
+.obs-modal.open { display: flex; }
+.obs-card {
+  width: 100%; max-width: 340px; max-height: 88vh; overflow-y: auto;
+  background: var(--bubble); border: 1px solid var(--bubble-border);
+  border-radius: 16px; box-shadow: 0 14px 40px rgba(0,0,0,.28);
+  padding: 16px; animation: chipIn .18s ease both;
+}
+.obs-title { font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+.obs-desc { font-size: 12.5px; color: var(--secondary); margin-bottom: 8px; }
+.obs-steps { margin: 0 0 12px; padding-left: 20px; font-size: 12.5px; line-height: 1.5; color: var(--text); }
+.obs-steps li { margin: 5px 0; }
+.obs-steps b { font-weight: 600; }
+.obs-field { display: block; margin: 8px 0; }
+.obs-field span { display: block; font-size: 12px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+.obs-field input {
+  width: 100%; box-sizing: border-box; border: 1px solid var(--bubble-border);
+  border-radius: 10px; padding: 9px 11px; font-size: 13px; font-family: inherit;
+  background: var(--bg); color: var(--text); outline: none;
+}
+.obs-field input:focus { border-color: var(--accent); }
+.obs-actions { display: flex; align-items: center; gap: 8px; margin-top: 14px; }
+.obs-spacer { flex: 1; }
+.obs-btn {
+  border: 1px solid var(--bubble-border); background: var(--bubble); color: var(--text);
+  font-size: 13px; font-weight: 600; padding: 8px 14px; border-radius: 10px; cursor: pointer;
+}
+.obs-btn:hover { background: rgba(0,0,0,.04); }
+.obs-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+.obs-primary:hover { filter: brightness(1.05); background: var(--accent); }
+
+.obs-note { font-size: 11.5px; color: var(--secondary); background: rgba(0,0,0,.04); border-radius: 8px; padding: 7px 9px; margin-bottom: 10px; line-height: 1.4; }
+.obs-field select { width: 100%; box-sizing: border-box; border: 1px solid var(--bubble-border); border-radius: 10px; padding: 9px 11px; font-size: 12.5px; font-family: inherit; background: var(--bg); color: var(--text); outline: none; }
+.obs-field select:focus { border-color: var(--accent); }
+
+.obs-checks { margin: 4px 0 8px; }
+.obs-check { display: flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--text); margin: 5px 0; cursor: pointer; }
+.obs-check input { width: 15px; height: 15px; flex-shrink: 0; accent-color: var(--accent); }
+.obs-check i { color: var(--secondary); font-style: italic; }
+.obs-hint { font-size: 11.5px; color: var(--secondary); margin-top: 3px; }
