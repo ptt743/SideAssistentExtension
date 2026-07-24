@@ -988,7 +988,12 @@ const moonListEl = document.getElementById("moonList");
 const PAGE_ACTIONS = [
   { name: "Lấy nội dung trang hiện tại", sub: "Trích văn bản trang đang mở", run: addCurrentTab },
   { name: "Cấu hình Obsidian", sub: "Dán API key Local REST API", run: configObsidian },
+  { name: "Mở ở cửa sổ riêng", sub: "Dùng khi trình duyệt không có side panel", run: openInOwnWindow },
 ];
+function openInOwnWindow() {
+  if (chrome.windows && chrome.windows.create)
+    chrome.windows.create({ url: chrome.runtime.getURL("sidepanel.html"), type: "popup", width: 440, height: 760 });
+}
 
 function renderMoonList() {
   moonListEl.innerHTML = PAGE_ACTIONS.map(
